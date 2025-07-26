@@ -1,0 +1,357 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Timbales Paylab
+    
+  </title>
+  <link rel="icon" type="image/jpeg" href="Tienda.jpg">
+
+
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
+  <style>
+    body {
+      background: #eaf4fc;
+      color: #003366;
+    }
+
+    h1 {
+      font-weight: bold;
+      color: #004080;
+    }
+
+    .category-container {
+      margin: 10px;
+      text-align: center;
+      width: 200px;
+    }
+
+    .category-img {
+      width: 100%;
+      height: 180px;
+      object-fit: cover;
+      border-radius: 16px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.25);
+      transition: transform 0.3s ease;
+    }
+
+    .category-img:hover {
+      transform: scale(1.05);
+    }
+
+    .category-name {
+      margin-top: 10px;
+      font-size: 1.2rem;
+      text-transform: capitalize;
+    }
+
+    .product-card {
+      background: #fff;
+      border: 1px solid #cce0ff;
+      border-radius: 16px;
+      padding: 15px;
+      margin-bottom: 20px;
+      box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+      position: relative;
+      overflow: hidden;
+      transition: transform 0.3s ease;
+    }
+
+    .product-card:hover {
+      transform: scale(1.02);
+    }
+
+    .cart {
+      position: fixed;
+      top: 0;
+      right: -350px;
+      width: 300px;
+      background: #ffffff;
+      height: 100vh;
+      padding: 20px;
+      overflow-y: auto;
+      border-left: 3px solid #007bff;
+      box-shadow: -2px 0 10px rgba(0,0,0,0.2);
+      z-index: 1000;
+      transition: right 0.3s ease-in-out;
+    }
+
+    .cart.show {
+      right: 0;
+    }
+
+    .cart-toggle-btn {
+      position: fixed;
+      bottom: 20px;
+      right: 20px;
+      background: #007bff;
+      color: white;
+      border: none;
+      border-radius: 50%;
+      width: 60px;
+      height: 60px;
+      font-size: 24px;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+      z-index: 1100;
+    }
+
+    .animate-add {
+      animation: pop 0.4s ease;
+    }
+
+    @keyframes pop {
+      0% { transform: scale(1); }
+      50% { transform: scale(1.2); }
+      100% { transform: scale(1); }
+    }
+  </style>
+</head>
+<body>
+  <div class="container my-4">
+    <h1 class="text-center">Timbales Menú</h1>
+    <div id="categories" class="d-flex flex-wrap justify-content-center mb-4"></div>
+    <div id="products" class="row"></div>
+  </div>
+
+  <!-- Botón flotante para mostrar carrito -->
+  <button class="cart-toggle-btn" onclick="toggleCart()">🛒</button>
+
+  <!-- Carrito (oculto al inicio) -->
+  <div id="cart" class="cart">
+    <h4>Carrito</h4>
+    <ul id="cart-items" class="list-unstyled"></ul>
+    <p>Total: $<span id="cart-total">0</span></p>
+    <div>
+      <label>Método de pago:</label>
+      <select id="payment-method" class="form-select">
+        <option value="efectivo">Efectivo</option>
+        <option value="tarjeta">Tarjeta</option>
+      </select>
+    </div>
+    <div id="cash-input" class="mt-2" style="display:none">
+      <label>Billete entregado:</label>
+      <input type="number" id="cash-given" class="form-control">
+      <p>Cambio: $<span id="change">0</span></p>
+    </div>
+    <div class="mt-2">
+      <input id="nombre" placeholder="Nombre" class="form-control mb-1">
+      <input id="apellido" placeholder="Apellido" class="form-control mb-2">
+      <button id="send-order" class="btn btn-success w-100">Enviar pedido por WhatsApp</button>
+    </div>
+  </div>
+
+  <!-- Tu script original (sin cambios funcionales, solo con animación al agregar) -->
+  <script type="module">
+    import { doc, updateDoc } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-firestore.js";
+
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-app.js";
+    import { getFirestore, collection, getDocs } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-firestore.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyBkRkkeQB7jXnHu7Kn7wKBHoty1Ol2BFn4",
+      authDomain: "pru-viki-tacos.firebaseapp.com",
+      projectId: "pru-viki-tacos",
+      storageBucket: "pru-viki-tacos.appspot.com",
+      messagingSenderId: "1017400139609",
+      appId: "1:1017400139609:web:4e979c7d1f9b1ff377b648"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+
+    let allProducts = [], cart = [];
+
+    const categoriesContainer = document.getElementById("categories");
+    const productsContainer = document.getElementById("products");
+    const cartItems = document.getElementById("cart-items");
+    const cartTotal = document.getElementById("cart-total");
+    const changeSpan = document.getElementById("change");
+
+    const categoryImages = {
+      timbales: "timbales.jpg",
+      bebidas: "barra.jpg",
+      horneados: "horneado.jpg"
+    };
+
+    document.getElementById("payment-method").addEventListener("change", e => {
+      document.getElementById("cash-input").style.display = e.target.value === "efectivo" ? "block" : "none";
+      calculateChange();
+    });
+
+    document.getElementById("cash-given").addEventListener("input", calculateChange);
+
+    function toggleCart() {
+      document.getElementById("cart").classList.toggle("show");
+    }
+    async function actualizarStock() {
+  for (const item of cart) {
+    const docRef = doc(db, "productos", item.id);
+    const presentacion = item.nombre.split('(')[1]?.replace(')', '');
+    const cantidad = item.qty;
+
+    if (presentacion && item.precios_adicionales?.[presentacion]) {
+      const currentStock = item.precios_adicionales[presentacion].stock;
+      const newStock = currentStock - cantidad;
+
+      if (newStock >= 0) {
+        await updateDoc(docRef, {
+          [`precios_adicionales.${presentacion}.stock`]: newStock
+        });
+      }
+    }
+  }
+}
+
+    async function fetchProducts() {
+      const querySnapshot = await getDocs(collection(db, "productos"));
+      allProducts = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      renderCategories();
+      renderProducts([]);
+    }
+
+    function renderCategories() {
+      categoriesContainer.innerHTML = '';
+      const categoryMap = {
+        timbales: ["timbales"],
+        bebidas: ["bebidas_hot", "bebidas ice"],
+        horneados: ["horneados"]
+      };
+
+      Object.keys(categoryMap).forEach(catKey => {
+        const imgFile = categoryImages[catKey] || `${catKey}.jpg`;
+        categoriesContainer.innerHTML += `
+          <div class="category-container">
+            <img class="category-img" src="img/${imgFile}" alt="${catKey}" onclick="filterByGroup('${catKey}')">
+            <div class="category-name">${catKey}</div>
+          </div>`;
+      });
+    }
+
+    window.filterByGroup = function(catKey) {
+      const categoryMap = {
+        timbales: ["timbales"],
+        bebidas: ["bebidas_hot", "bebidas ice"],
+        horneados: ["horneados"]
+      };
+      const filtered = allProducts.filter(p => categoryMap[catKey].includes(p.categoria));
+      renderProducts(filtered);
+    };
+
+    function renderProducts(products) {
+      productsContainer.innerHTML = products.map(p => {
+        const presentaciones = p.precios_adicionales || {};
+        const opciones = Object.entries(presentaciones).map(([k, v]) => {
+          const stock = v.stock ?? 0;
+          const precio = v.precio ?? 0;
+          return `<option value="${k}" ${stock <= 0 ? 'disabled' : ''}>${k} - $${precio} - Stock: ${stock}</option>`;
+        }).join('');
+        return `
+        <div class="col-12 col-sm-6 col-md-4">
+          <div class="product-card">
+            <h5>${p.nombre}</h5>
+            <p>${p.descripcion || ''}</p>
+            <select id="select-${p.id}" class="form-select mb-2">
+              <option disabled selected>Selecciona presentación</option>
+              ${opciones}
+            </select>
+            <button class="btn btn-primary" onclick='addToCart("${p.id}")'>Agregar</button>
+          </div>
+        </div>`;
+      }).join('');
+    }
+
+    window.addToCart = function(productId) {
+      const product = allProducts.find(p => p.id === productId);
+      const select = document.getElementById(`select-${productId}`);
+      const presentacion = select?.value;
+      if (!presentacion) return alert("Selecciona una presentación");
+
+      const presentacionData = product.precios_adicionales?.[presentacion] || {};
+      const precio = presentacionData.precio ?? product.precio;
+      const stock = presentacionData.stock ?? 0;
+
+      const cartKey = `${productId}_${presentacion}`;
+      const item = cart.find(c => c.cartKey === cartKey);
+
+      if (item) {
+        if (item.qty < stock) item.qty++;
+        else return alert("No hay suficiente stock para esta presentación.");
+      } else {
+        if (stock <= 0) return alert("Esta presentación no tiene stock.");
+        cart.push({ ...product, cartKey, nombre: `${product.nombre} (${presentacion})`, precio, stock, qty: 1 });
+      }
+      renderCart();
+      document.getElementById("cart").classList.add("show");
+
+      // Animación
+      const btn = select.nextElementSibling;
+      btn.classList.add("animate-add");
+      setTimeout(() => btn.classList.remove("animate-add"), 400);
+    };
+
+    function renderCart() {
+      cartItems.innerHTML = cart.map((item, i) => `
+        <li>
+          ${item.nombre} - $${item.precio} x ${item.qty}
+          <div>
+            <button onclick='changeQty(${i}, -1)' class="btn btn-sm btn-secondary">-</button>
+            <button onclick='changeQty(${i}, 1)' class="btn btn-sm btn-secondary">+</button>
+            <button onclick='removeItem(${i})' class="btn btn-sm btn-danger">x</button>
+          </div>
+        </li>
+      `).join('');
+      updateTotal();
+    }
+
+    window.changeQty = function(index, delta) {
+      if (cart[index].qty + delta <= 0) return removeItem(index);
+      if (cart[index].qty + delta > cart[index].stock) return;
+      cart[index].qty += delta;
+      renderCart();
+    };
+
+    window.removeItem = function(index) {
+      cart.splice(index, 1);
+      renderCart();
+    };
+
+    function updateTotal() {
+      const total = cart.reduce((sum, p) => sum + p.precio * p.qty, 0);
+      cartTotal.textContent = total;
+      calculateChange();
+    }
+
+    function calculateChange() {
+      const efectivo = document.getElementById("cash-given").value;
+      const total = parseFloat(cartTotal.textContent);
+      const cambio = efectivo ? (efectivo - total) : 0;
+      changeSpan.textContent = cambio >= 0 ? cambio : 0;
+    }
+
+    document.getElementById("send-order").addEventListener("click", async () => {
+  const nombre = document.getElementById("nombre").value;
+  const apellido = document.getElementById("apellido").value;
+  const pago = document.getElementById("payment-method").value;
+  const efectivo = document.getElementById("cash-given").value;
+  const total = cartTotal.textContent;
+  const cambio = document.getElementById("change").textContent;
+  const productos = cart.map(p => `${p.nombre} x${p.qty}`).join(', ');
+
+  const mensaje = `Pedido:%0A${productos}%0ATotal: $${total}%0APago: ${pago}${pago === 'efectivo' ? `%0AEfectivo: $${efectivo}%0ACambio: $${cambio}` : ''}%0ACliente: ${nombre} ${apellido}`;
+
+  await actualizarStock();
+  window.open(`https://wa.me/5215525338668?text=${mensaje}`, '_blank');
+
+  // Limpiar carrito y actualizar UI
+  cart = [];
+  renderCart();
+  fetchProducts();
+  document.getElementById("cart").classList.remove("show");
+});
+
+
+    fetchProducts();
+  </script>
+</body>
+</html>
