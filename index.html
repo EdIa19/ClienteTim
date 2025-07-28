@@ -142,42 +142,55 @@
   </div>
 
   <!-- Tu script original (sin cambios funcionales, solo con animación al agregar) -->
-  <script type="module">
-    import { doc, updateDoc } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-firestore.js";
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-app.js";
+  import { getFirestore, collection, getDocs, doc, updateDoc } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-firestore.js";
+  import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-auth.js";
 
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-app.js";
-    import { getFirestore, collection, getDocs } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-firestore.js";
+  // ✅ Inicializa Firebase primero
+  const firebaseConfig = {
+    apiKey: "AIzaSyBkRkkeQB7jXnHu7Kn7wKBHoty1Ol2BFn4",
+    authDomain: "pru-viki-tacos.firebaseapp.com",
+    projectId: "pru-viki-tacos",
+    storageBucket: "pru-viki-tacos.appspot.com",
+    messagingSenderId: "1017400139609",
+    appId: "1:1017400139609:web:4e979c7d1f9b1ff377b648"
+  };
 
-    const firebaseConfig = {
-      apiKey: "AIzaSyBkRkkeQB7jXnHu7Kn7wKBHoty1Ol2BFn4",
-      authDomain: "pru-viki-tacos.firebaseapp.com",
-      projectId: "pru-viki-tacos",
-      storageBucket: "pru-viki-tacos.appspot.com",
-      messagingSenderId: "1017400139609",
-      appId: "1:1017400139609:web:4e979c7d1f9b1ff377b648"
-    };
+  const app = initializeApp(firebaseConfig);
+  const db = getFirestore(app);
 
-    const app = initializeApp(firebaseConfig);
-    const db = getFirestore(app);
+  // ✅ Autenticación anónima después de inicializar app
+  const auth = getAuth(app);
+  signInAnonymously(auth)
+    .then(() => {
+      console.log("Autenticado anónimamente");
 
-    let allProducts = [], cart = [];
-
-    const categoriesContainer = document.getElementById("categories");
-    const productsContainer = document.getElementById("products");
-    const cartItems = document.getElementById("cart-items");
-    const cartTotal = document.getElementById("cart-total");
-    const changeSpan = document.getElementById("change");
-
-    const categoryImages = {
-      timbales: "timbales.jpg",
-      bebidas: "barra.jpg",
-      horneados: "horneado.jpg"
-    };
-
-    document.getElementById("payment-method").addEventListener("change", e => {
-      document.getElementById("cash-input").style.display = e.target.value === "efectivo" ? "block" : "none";
-      calculateChange();
+       fetchProducts();
+    })
+    .catch((error) => {
+      console.error("Error al autenticar anónimo", error);
     });
+
+  // ✅ Todo lo demás abajo
+  let allProducts = [], cart = [];
+
+  const categoriesContainer = document.getElementById("categories");
+  const productsContainer = document.getElementById("products");
+  const cartItems = document.getElementById("cart-items");
+  const cartTotal = document.getElementById("cart-total");
+  const changeSpan = document.getElementById("change");
+
+  const categoryImages = {
+    timbales: "timbales.jpg",
+    bebidas: "barra.jpg",
+    horneados: "horneado.jpg"
+  };
+
+  document.getElementById("payment-method").addEventListener("change", e => {
+    document.getElementById("cash-input").style.display = e.target.value === "efectivo" ? "block" : "none";
+    calculateChange();
+  });
 
     document.getElementById("cash-given").addEventListener("input", calculateChange);
 
@@ -351,7 +364,7 @@
 });
 
 
-    fetchProducts();
+
   </script>
 </body>
 </html>
